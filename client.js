@@ -8,8 +8,6 @@ var breaknum; //for deleting client servers
 var idindex; //same^
 var cleartimer = []; //game phase out timer
 
-var tcpPortUsed = require('tcp-port-used');
-
 const port = 8080;
 
 module.exports = function() {
@@ -36,38 +34,28 @@ module.exports = function() {
     this.makeLobby = function(data) {
         let roomInfo = JSON.parse(data);
         client.ip = roomInfo["ip"];
-        tcpPortUsed.check(port, client.ip)
-            .then(function(inUse) {
-                if (inUse === true) {
-                    games[gameid] = roomInfo;
-                    console.log("game[" + gameid + "] from client " + client.id + ": " + JSON.stringify(games[gameid]));
-                    client.host = true;
-                    
-                    //#region find host num
-                    let nohostnum = true;
-                    for (let i = 0; i < hostnum; i++) {
-                        if (cleartimer[i] == 0) { //if it's blank
-                            client.hostnum = i;
-                            nohostnum = false;
-                            break;
-                        }
-                    }
-                    if (nohostnum === true) {
-                        client.hostnum = hostnum; //host number
-                        hostnum++;
-                    }
-                    //#endregion
-                    clearTimeout(cleartimer[client.hostnum]);
-                    cleartimer[client.hostnum] = setTimeout(phaseOut, 62000, client.ip, client.hostnum);
-                    
-                    gameid++;
-                    
-                } else {
-                     console.log(client.id + ' not port forwarded');
-                }
-            }, function(err) {
-                 console.log('Timeoout on check for ' + client.id + ': , ' + err.message);
-            });
+        games[gameid] = roomInfo;
+        console.log("game[" + gameid + "] from client " + client.id + ": " + JSON.stringify(games[gameid]));
+        client.host = true;
+        
+        //#region find host num
+        let nohostnum = true;
+        for (let i = 0; i < hostnum; i++) {
+            if (cleartimer[i] == 0) { //if it's blank
+                client.hostnum = i;
+                nohostnum = false;
+                break;
+            }
+        }
+        if (nohostnum === true) {
+            client.hostnum = hostnum; //host number
+            hostnum++;
+        }
+        //#endregion
+        clearTimeout(cleartimer[client.hostnum]);
+        cleartimer[client.hostnum] = setTimeout(phaseOut, 62000, client.ip, client.hostnum);
+        
+        gameid++;
     }
     
     this.updateLobby = function(data) {
@@ -76,7 +64,8 @@ module.exports = function() {
         for (let i = 0; i < gameid; i++) { //check to see if they were hosting a server
             idindex = games[i]["ip"];
             if (idindex === client.ip) {
-                games[i] = roomInfo;
+                games[i]["playerNum"] = roomInfo["playerNum"];
+                games[i]["playerCapacity"] = roomInfo["playerCapacity"];
                 clearTimeout(cleartimer[client.hostnum]);
                 cleartimer[client.hostnum] = setTimeout(phaseOut, 62000, client.ip, client.hostnum);
                 break;
