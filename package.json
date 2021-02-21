@@ -1,0 +1,23 @@
+{
+  "name": "hadallobbyserver",
+  "version": "1.0.0",
+  "description": "Server for Hadal Calm lobbies",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Donpommelo/HadalCalmLobby.git"
+  },
+  "author": "Donpommelo",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Donpommelo/HadalCalmLobby/issues"
+  },
+  "homepage": "https://github.com/Donpommelo/HadalCalmLobby#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
