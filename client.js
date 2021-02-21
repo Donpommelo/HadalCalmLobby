@@ -8,7 +8,7 @@ var breaknum; //for deleting client servers
 var idindex; //same^
 var cleartimer = []; //game phase out timer
 
-const port = 8080;
+const port = 7078;
 
 module.exports = function() {
     var client = this;

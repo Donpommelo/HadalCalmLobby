@@ -3,7 +3,7 @@ var server = require('http').Server(app);
 var io = require('socket.io')(server);
 var players = [];
 
-const port = 8080;
+const port = 7078;
 
 server.listen(port, function(){
 	console.log("Server is now running...");
