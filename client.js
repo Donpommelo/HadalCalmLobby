@@ -66,6 +66,8 @@ module.exports = function() {
             if (idindex === client.ip) {
                 games[i]["playerNum"] = roomInfo["playerNum"];
                 games[i]["playerCapacity"] = roomInfo["playerCapacity"];
+                games[i]["gameMode"] = roomInfo["gameMode"];
+                games[i]["gameMap"] = roomInfo["gameMap"];
                 clearTimeout(cleartimer[client.hostnum]);
                 cleartimer[client.hostnum] = setTimeout(phaseOut, 62000, client.ip, client.hostnum);
                 break;
