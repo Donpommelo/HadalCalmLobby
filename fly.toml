@@ -1,4 +1,4 @@
-# fly.toml file generated for hadal-calm-lobby on 2022-08-27T07:14:19-05:00
+# fly.toml file generated for hadal-calm-lobby on 2022-10-21T14:33:48-05:00
 
 app = "hadal-calm-lobby"
 kill_signal = "SIGINT"
@@ -14,6 +14,9 @@ processes = []
 [experimental]
   allowed_public_ports = []
   auto_rollback = true
+  cmd = []
+  entrypoint = []
+  exec = []
 
 [[services]]
   http_checks = []
