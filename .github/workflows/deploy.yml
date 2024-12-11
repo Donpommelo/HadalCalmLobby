@@ -13,29 +13,51 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    - name: Deploy to EC2
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ec2-user
-        key: ${{ secrets.EC2_SSH_KEY }}
-        source: './*'
-        target: '~/lobby-server'
-
-    - name: Ensure Dependencies and Restart Server
+    - name: Clean up old files
       uses: appleboy/ssh-action@v1.2.0
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          cd ~/lobby-server
-          if [ ! -d "node_modules" ]; then
-            echo "Node modules not found, running npm install..."
-            npm install
-          else
-            echo "Node modules already installed."
-          fi
-          pm2 stop server || true
-          pm2 start server.js
+          # Navigate to the project directory, or create it if it doesn't exist
+          mkdir -p ~/project && cd ~/project
+
+          rm -rf *
+
+          # Copy files from the GitHub runner
+          exit
+
+    - name: Copy files to EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "."
+        target: "~/project"
+        
+    - name: Set up and run the server
+      uses: appleboy/ssh-action@v1.2.0
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: 22
+        script: |
+          # Navigate to the project directory
+          cd ~/project
+
+          # Ensure Node.js, npm, and pm2 are installed
+          sudo yum update -y
+          curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+          sudo yum install -y nodejs
+          sudo npm install -g pm2
+
+          # Install dependencies
+          npm install
+
+          # Start or restart the server using pm2
+          pm2 restart server.js || pm2 start server.js
+          pm2 save
     
