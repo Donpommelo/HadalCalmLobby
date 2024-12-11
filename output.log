@@ -1,0 +1,8 @@
+Server is now running... 8080
+Player Connected!
+Sending Lobby List to Client ID: OOlSTxpGjm7WcTQrAAAB
+Local Lobby created for client OOlSTxpGjm7WcTQrAAAB: {"playerCapacity":10,"ip":"71.29.196.224","name":"Larracuda Latticelli's Lobby","playerNum":1,"gameMode":"Hub","gameMap":"S.S. TUNICATE","lastUpdate":1733952272527,"online":false}
+Player Connected!
+Sending Lobby List to Client ID: PSVGh4nXjWErLPR4AAAD
+Client PSVGh4nXjWErLPR4AAAD Disconnected
+Client OOlSTxpGjm7WcTQrAAAB Disconnected
