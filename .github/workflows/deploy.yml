@@ -1,0 +1,41 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Deploy to EC2
+      uses: appleboy/scp-action@v0.2.2
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: './*'
+        target: '~/lobby-server'
+
+    - name: Ensure Dependencies and Restart Server
+      uses: appleboy/ssh-action@v0.1.4
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd ~/lobby-server
+          if [ ! -d "node_modules" ]; then
+            echo "Node modules not found, running npm install..."
+            npm install
+          else
+            echo "Node modules already installed."
+          fi
+          pm2 stop server || true
+          pm2 start server.js
+    

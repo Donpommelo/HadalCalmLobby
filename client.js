@@ -1,124 +1,128 @@
 //client.js
-var total = 0; //total amount of clients that session
-var current = 0; //total amount of concurrent clients
-var hostnum = 0; //total amount of hosts (total was getting too high to use as client.id in arrays)
-var games = [];
-var gameid = 0; //array index and total gamecount
-var breaknum; //for deleting client servers
-var idindex; //same^
-var cleartimer = []; //game phase out timer
+const { ECSClient, DescribeContainerInstancesCommand, TerminateInstancesCommand } = require("@aws-sdk/client-ec2");
 
-const port = process.env.PORT || 8080;
+const activeServers = new Map();
 
-module.exports = function() {
-    var client = this;
-    
-    this.initiate = function() {
-        current++;
-        total++;     
-        
-        client.id = total.toString();
-        client.host = false;
-        
-        client.socket.emit('handshake', 'fug');
-        
-        console.log("client player connected; " + current + " concurrent players connected, " + total + " clients players so far");
-    }
-    
+module.exports = function(socket) {
+	const clientID = socket.id;
     
     this.getLobbies = function() {
-        console.log("sending gameslist to client " + client.id + "...");
-        client.socket.emit('receiveLobbies', games);
+		console.log(`Sending Lobby List to Client ID: ${clientID}`);
+        socket.emit('receiveLobbies', Array.from(activeServers.values()));
     }
 
-    this.makeLobby = function(data) {
-        let roomInfo = JSON.parse(data);
-        client.ip = roomInfo["ip"];
-        games[gameid] = roomInfo;
-        console.log("game[" + gameid + "] from client " + client.id + ": " + JSON.stringify(games[gameid]));
-        client.host = true;
-        
-        //#region find host num
-        let nohostnum = true;
-        for (let i = 0; i < hostnum; i++) {
-            if (cleartimer[i] == 0) { //if it's blank
-                client.hostnum = i;
-                nohostnum = false;
-                break;
-            }
-        }
-        if (nohostnum === true) {
-            client.hostnum = hostnum; //host number
-            hostnum++;
-        }
-        //#endregion
-        clearTimeout(cleartimer[client.hostnum]);
-        cleartimer[client.hostnum] = setTimeout(phaseOut, 62000, client.ip, client.hostnum);
-        
-        gameid++;
+	this.updateLobby = function(data) {
+        const roomInfo = JSON.parse(data);
+		const serverID = roomInfo["instanceID"] ?? clientID;
+		
+		if (activeServers.has(serverID)) {
+			const currentData = activeServers.get(serverID);
+			currentData["playerNum"] = roomInfo["playerNum"];
+			currentData["playerCapacity"] = roomInfo["playerCapacity"];
+			currentData["gameMode"] = roomInfo["gameMode"];
+			currentData["gameMap"] = roomInfo["gameMap"];
+			currentData["lastUpdate"] = Date.now();
+			activeServers.set(serverID, currentData);
+		}
     }
-    
-    this.updateLobby = function(data) {
-        let roomInfo = JSON.parse(data);
-        
-        for (let i = 0; i < gameid; i++) { //check to see if they were hosting a server
-            idindex = games[i]["ip"];
-            if (idindex === client.ip) {
-                games[i]["playerNum"] = roomInfo["playerNum"];
-                games[i]["playerCapacity"] = roomInfo["playerCapacity"];
-                games[i]["gameMode"] = roomInfo["gameMode"];
-                games[i]["gameMap"] = roomInfo["gameMap"];
-                clearTimeout(cleartimer[client.hostnum]);
-                cleartimer[client.hostnum] = setTimeout(phaseOut, 62000, client.ip, client.hostnum);
-                break;
-            }
-        }
+	
+    this.makeLobbyLocal = function(data) {
+		const roomInfo = JSON.parse(data);
+		setupDefaultLobbyFields(roomInfo);
+		roomInfo["online"] = false;
+
+		console.log(`Local Lobby created for client ${clientID}: ${JSON.stringify(roomInfo)}`);
+		activeServers.set(clientID, roomInfo);
     }
+	
+	this.makeLobbyOnline = async function(data) {
+		const userDataScript = `#!/bin/bash INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id) echo "export INSTANCE_ID=$INSTANCE_ID" >> /etc/environment`;
+		const params = {
+			ImageId: 'ami-0c80e2b6ccb9ad6d1',
+			InstanceType: 't2.micro',
+			KeyName: 'HadalServerKeyPair',
+			SecurityGroupIds: ['sg-033cf7faef5b20466'],
+			UserData: Buffer.from(userDataScript).toString("base64")
+		};
+		const client = new ECSClient({
+				region: "us-east-1"
+		});
+		const runInstancesCommand = new RunInstancesCommand(params);
+		
+		try {
+			const result = await ec2Client.send(runInstancesCommand);
+			const instanceID = result.Instances[0].InstanceId;
+			console.log(`Successfully launched instance with ID: ${instanceID}`);
+			
+			const describeCommand = new DescribeInstancesCommand({
+				InstanceIds: [instanceID]
+			});
+			const data = await ec2Client.send(describeCommand);
+			const instance = data.Reservations[0].Instances[0];
+			
+			socket.emit('lobbyCreated', instance.PublicIpAddress, instanceID);
+			
+			const roomInfo = JSON.parse(data);
+			setupDefaultLobbyFields(roomInfo);
+			roomInfo["instanceID"] = instanceID;
+			roomInfo["ip"] = instance.PublicIpAddress;
+			roomInfo["online"] = true;
+			
+			console.log(`Online Lobby created for client ${clientID}: ${JSON.stringify(roomInfo)}`);
+			activeServers.set(instanceID, roomInfo);
+		} catch (err) {
+			console.error(`Error launching instance: ${err}`);
+		}
+	}
 
     this.error = function(err) {
-        current--;
-        if (client.host === true) {
-            phaseOut(client.ip,client.hostnum);
-        }
-        console.log("client " + client.id + " error " + err.toString());
-        delete client;
+        console.log(`Client ${clientID} error: ${err.toString()}`);
+        activeServers.delete(clientID);
+        delete this;
     }
 
     this.disconnect = function() {
-        current--;
-        //delete game
-        if (client.host === true) {
-            phaseOut(client.ip, client.hostnum);
-        }
-        console.log("client " + client.id + " disconnected");
-        delete client;
-    }
-    
-    this.end = function() {
-        if (client.host === true) {
-            phaseOut(client.ip, client.hostnum);
-            console.log("client " + client.id + " hosted server closed");
-        }
-        console.log("client " + client.id + " ended");
+		console.log(`Client ${clientID} Disconnected`);
+        activeServers.delete(clientID);
+        delete this;
     }
 }
 
-function phaseOut(cip, hostnum) {
-    //find & delete
-    for (let i = 0; i < gameid; i++) { //check to see if they were hosting a server
-        idindex = games[i]["ip"];
-        if (idindex === cip) { //if the acquired string "a number" is equal to the client.id
-            games[i] = 0; //blank it
+function setupDefaultLobbyFields(roomInfo) {
+	roomInfo["playerNum"] = 1;
+	roomInfo["gameMode"] = "Hub";
+	roomInfo["gameMap"] = "S.S. TUNICATE";
+	roomInfo["lastUpdate"] = Date.now();
+}
 
-            breaknum = (i + 1); //one above the break value
-            console.log("game[" + i + "] deleted");
-            
-            clearTimeout(cleartimer[hostnum]);
-            cleartimer[hostnum] = 0; //blanked!
-            
-            games.splice(i, 1); //condense
-            gameid -= 1; //reduce game array index (total number of games)
-            break;
+async function terminateInstance(instanceID) {
+  try {
+    // Create the terminate command
+    const terminateCommand = new TerminateInstancesCommand({
+      InstanceIds: [instanceID]
+    });
+
+    // Send the command
+    const response = await ec2Client.send(terminateCommand);
+
+    // Log the response
+    console.log(`Instance with ID ${instanceID} terminated successfully: ${response.TerminatingInstances}`);
+    return response;
+  } catch (err) {
+	console.error(`Error terminating instance with ID ${instanceID}: ${err}`);
+  }
+}
+
+// Periodic cleanup of inactive servers
+setInterval(() => {
+    const now = Date.now();
+    for (const [serverID, server] of activeServers) {
+        if (now - server.lastUpdate > 180000) { // 3 minutes
+			console.log(`Server ${serverID} Removed for Inactivity`);
+			if (server.online) {
+				terminateInstance(serverID);
+			}
+			activeServers.delete(serverID);
         }
     }
-}
+}, 60000); // Run every minute
