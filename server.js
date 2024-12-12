@@ -16,6 +16,7 @@ io.on('connection', function(socket){
 
     socket.on('error', thisClient.error);
     socket.on('disconnect', thisClient.disconnect);
+    socket.on('exit', thisClient.exit);
     socket.on('getLobbies', thisClient.getLobbies);
 	socket.on('updateLobby', thisClient.updateLobby);
     socket.on('makeLobbyLocal', thisClient.makeLobbyLocal);

@@ -25,9 +25,6 @@ jobs:
 
           rm -rf *
 
-          # Copy files from the GitHub runner
-          exit
-
     - name: Copy files to EC2
       uses: appleboy/scp-action@v0.1.7
       with:

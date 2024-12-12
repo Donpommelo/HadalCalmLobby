@@ -86,6 +86,19 @@ module.exports = function(socket) {
         activeServers.delete(clientID);
         delete this;
     }
+	
+	this.exit = function() {
+		console.log(`Client ${clientID} Exited`);
+		
+		if (activeServers.has(clientID)) {
+			const currentData = activeServers.get(clientID);
+			if (!currentData["online"]) {
+				console.log(`Lobby with ID ${clientID} Deleted`);
+				activeServers.delete(clientID);
+			}
+		}
+        delete this;
+    }
 }
 
 function setupDefaultLobbyFields(roomInfo) {
@@ -119,7 +132,7 @@ setInterval(() => {
     for (const [serverID, server] of activeServers) {
         if (now - server.lastUpdate > 180000) { // 3 minutes
 			console.log(`Server ${serverID} Removed for Inactivity`);
-			if (server.online) {
+			if (server["online"]) {
 				terminateInstance(serverID);
 			}
 			activeServers.delete(serverID);
