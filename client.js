@@ -1,4 +1,6 @@
 //client.js
+
+require('dotenv').config();
 const { ECSClient, DescribeContainerInstancesCommand, TerminateInstancesCommand } = require("@aws-sdk/client-ec2");
 
 const activeServers = new Map();
@@ -36,40 +38,31 @@ module.exports = function(socket) {
     }
 	
 	this.makeLobbyOnline = async function(data) {
-		const userDataScript = `#!/bin/bash INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id) echo "export INSTANCE_ID=$INSTANCE_ID" >> /etc/environment`;
-		const params = {
-			ImageId: 'ami-0c80e2b6ccb9ad6d1',
-			InstanceType: 't2.micro',
-			KeyName: 'HadalServerKeyPair',
-			SecurityGroupIds: ['sg-033cf7faef5b20466'],
-			UserData: Buffer.from(userDataScript).toString("base64")
-		};
-		const client = new ECSClient({
+		const ec2Client = new ECSClient({
 				region: "us-east-1"
 		});
+		
+		const imageID = getMostRecentAMI(ec2Client);
+		
+		const userDataScript = 
+		`#!/bin/bash INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id) 
+		echo "export INSTANCE_ID=$INSTANCE_ID" >> /etc/environment
+		source /etc/environment`;
+		const params = {
+			ImageId: imageID,
+			InstanceType: 't2.micro',
+			KeyName: process.env.AWS_KEY_NAME,
+			SecurityGroupIds: [process.env.AWS_SECURITY_GROUPID],
+			UserData: Buffer.from(userDataScript).toString("base64")
+		};
+		
 		const runInstancesCommand = new RunInstancesCommand(params);
 		
 		try {
 			const result = await ec2Client.send(runInstancesCommand);
 			const instanceID = result.Instances[0].InstanceId;
 			console.log(`Successfully launched instance with ID: ${instanceID}`);
-			
-			const describeCommand = new DescribeInstancesCommand({
-				InstanceIds: [instanceID]
-			});
-			const data = await ec2Client.send(describeCommand);
-			const instance = data.Reservations[0].Instances[0];
-			
-			socket.emit('lobbyCreated', instance.PublicIpAddress, instanceID);
-			
-			const roomInfo = JSON.parse(data);
-			setupDefaultLobbyFields(roomInfo);
-			roomInfo["instanceID"] = instanceID;
-			roomInfo["ip"] = instance.PublicIpAddress;
-			roomInfo["online"] = true;
-			
-			console.log(`Online Lobby created for client ${clientID}: ${JSON.stringify(roomInfo)}`);
-			activeServers.set(instanceID, roomInfo);
+			getInstanceInfo(ec2Client, instanceID);
 		} catch (err) {
 			console.error(`Error launching instance: ${err}`);
 		}
@@ -106,6 +99,50 @@ function setupDefaultLobbyFields(roomInfo) {
 	roomInfo["gameMode"] = "Hub";
 	roomInfo["gameMap"] = "S.S. TUNICATE";
 	roomInfo["lastUpdate"] = Date.now();
+}
+
+async function getMostRecentAMI(ec2Client) {
+    const params = {
+        Filters: [
+            { Name: 'name', Values: ['HadalServerAMI*'] }
+        ]
+    };
+
+    try {
+        const data = await ec2Client.describeImages(params).promise();
+        const images = data.Images;
+
+        // Sort the images by creation date in descending order
+        images.sort((a, b) => new Date(b.CreationDate) - new Date(a.CreationDate));
+
+        // Return the most recent AMI ID
+        return images[0].ImageId;
+    } catch (err) {
+		console.error(`Error fetching AMI: ${err}`);
+    }
+}
+
+async function getInstanceInfo(ec2Client, instanceID) {
+	try {		
+		const describeCommand = new DescribeInstancesCommand({
+			InstanceIds: [instanceID]
+		});
+		const data = await ec2Client.send(describeCommand);
+		const instance = data.Reservations[0].Instances[0];
+		
+		socket.emit('lobbyCreated', instance.PublicIpAddress, instanceID);
+		
+		const roomInfo = JSON.parse(data);
+		setupDefaultLobbyFields(roomInfo);
+		roomInfo["instanceID"] = instanceID;
+		roomInfo["ip"] = instance.PublicIpAddress;
+		roomInfo["online"] = true;
+		
+		console.log(`Online Lobby created for client ${clientID}: ${JSON.stringify(roomInfo)}`);
+		activeServers.set(instanceID, roomInfo);
+	} catch (err) {
+		console.error(`Error Acquire Properties of instance with ID: ${instanceID}: ${err}`);
+	}
 }
 
 async function terminateInstance(instanceID) {

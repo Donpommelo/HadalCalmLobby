@@ -11,7 +11,7 @@ jobs:
     
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Clean up old files
       uses: appleboy/ssh-action@v1.2.0
@@ -22,7 +22,6 @@ jobs:
         script: |
           # Navigate to the project directory, or create it if it doesn't exist
           mkdir -p ~/project && cd ~/project
-
           rm -rf *
 
     - name: Copy files to EC2
@@ -36,25 +35,25 @@ jobs:
         
     - name: Set up and run the server
       uses: appleboy/ssh-action@v1.2.0
+      env:
+        AWS_SECURITY_GROUPID = ${{ secrets.AWS_SECURITY_GROUPID }}
+        AWS_KEY_NAME = ${{ secrets.AWS_KEY_NAME }}
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
         port: 22
+        env: AWS_SECURITY_GROUPID, AWS_KEY_NAME
         script: |
           # Navigate to the project directory
           cd ~/project
-
           # Ensure Node.js, npm, and pm2 are installed
           sudo yum update -y
           curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
           sudo yum install -y nodejs
           sudo npm install -g pm2
-
           # Install dependencies
           npm install
-
           # Start or restart the server using pm2
           pm2 restart server.js || pm2 start server.js
           pm2 save
-    
