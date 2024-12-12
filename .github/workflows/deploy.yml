@@ -36,14 +36,14 @@ jobs:
     - name: Set up and run the server
       uses: appleboy/ssh-action@v1.2.0
       env:
-        AWS_SECURITY_GROUPID = ${{ secrets.AWS_SECURITY_GROUPID }}
-        AWS_KEY_NAME = ${{ secrets.AWS_KEY_NAME }}
+        AWS_SECURITY_GROUPID: ${{ secrets.AWS_SECURITY_GROUPID }}
+        AWS_KEY_NAME: ${{ secrets.AWS_KEY_NAME }}
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
         port: 22
-        env: AWS_SECURITY_GROUPID, AWS_KEY_NAME
+        envs: AWS_SECURITY_GROUPID, AWS_KEY_NAME
         script: |
           # Navigate to the project directory
           cd ~/project
