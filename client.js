@@ -2,7 +2,7 @@
 
 require('dotenv').config();
 const { EC2Client, DescribeInstancesCommand, DescribeImagesCommand, RunInstancesCommand, TerminateInstancesCommand } = require("@aws-sdk/client-ec2");
-
+const { fromInstanceMetadata } = require("@aws-sdk/credential-providers");
 const activeServers = new Map();
 
 // Check if running locally or on AWS
@@ -189,7 +189,7 @@ function getClient(region) {
 		credentials: isLocal ? {
 			accessKeyId: process.env.ACCESS_KEY_ID,
 			secretAccessKey: process.env.SECRET_ACCESS_KEY
-		} : {}
+		} : fromInstanceMetadata()
 	});
 }
 
