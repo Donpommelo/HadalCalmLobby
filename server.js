@@ -4,6 +4,14 @@ const io = require('socket.io')(server);
 
 const port = process.env.PORT || 8080;
 
+const https = require("https");
+
+https.get("https://ec2.amazonaws.com", (res) => {
+  console.log(`Status Code: ${res.statusCode}`);
+}).on("error", (err) => {
+  console.error("Error:", err.message);
+});
+
 server.listen(port, function(){
 	console.log("Server is now running... " + port);
 });

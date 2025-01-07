@@ -42,14 +42,14 @@ module.exports = function(socket) {
 	
 	this.makeLobbyOnline = async function(data) {
 		const ec2Client = getClient("us-east-2");
-//		const imageID = await getMostRecentAMI(ec2Client);
+		const imageID = await getMostRecentAMI(ec2Client);
 		
 		const userDataScript = 
 		`#!/bin/bash
 		nohup java -jar /home/ec2-user/project/HadalServer.jar > /home/ec2-user/project/debug.log 2>&1 &
 		`;
 		const params = {
-			ImageId: 'ami-0cc30c53261f4e87c',
+			ImageId: imageID,
 			InstanceType: 't2.micro',
 			KeyName: process.env.AWS_KEY_NAME,
 			SecurityGroupIds: [process.env.AWS_SECURITY_GROUPID],
