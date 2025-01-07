@@ -184,6 +184,8 @@ function setupDefaultLobbyFields(roomInfo) {
 }
 
 function getClient(region) {
+	console.log("AWS_ACCESS_KEY_ID:", process.env.ACCESS_KEY_ID);
+	console.log("AWS_SECRET_ACCESS_KEY:", process.env.SECRET_ACCESS_KEY);
 	return new EC2Client({
 		region: region,
 		credentials: isLocal ? {
